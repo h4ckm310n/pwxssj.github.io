@@ -12,12 +12,11 @@ import os, requests, zipfile
 from selenium import webdriver
 from lxml import etree
 
-'''主要问题出现在search函数上'''
+'''问题见search函数和comic函数的注释'''
 
 class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("Form")
-        #Form.setFixedSize(QtWidgets.QDesktopWidget.)
         self.gridLayout_4 = QtWidgets.QGridLayout(Form)
         self.gridLayout_4.setObjectName("gridLayout_4")
         self.gridLayout = QtWidgets.QGridLayout()
@@ -44,7 +43,6 @@ class Ui_Form(object):
         self.search_scrollArea = QtWidgets.QScrollArea(self.search_tab)
         self.search_scrollArea.setObjectName("search_scrollArea")
         self.search_scrollAreaWidgetContents = QtWidgets.QWidget()
-        #self.search_scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 2000, 2000))
         self.search_scrollAreaWidgetContents.setObjectName("search_scrollAreaWidgetContents")
         self.search_scrollArea.setWidget(self.search_scrollAreaWidgetContents)
         self.search_scrollArea.setWidgetResizable(True)
@@ -77,8 +75,7 @@ class Ui_Form(object):
         QtCore.QMetaObject.connectSlotsByName(Form)
 
     def search(self):
-        '''目前发现的问题：进行新的一次搜索后，之前的搜索结果还在，新的搜索结果覆盖在上面'''
-
+        '''目前发现的问题：进行新的一次搜索后，之前的搜索结果还在，新的搜索结果直接覆盖在上面 （见目录中的search_1到search_3三个图片)'''
         _translate = QtCore.QCoreApplication.translate
         url_search = 'https://www.dmzj.com/dynamic/o_search/index/' + self.search_edit.text()
         result_search = requests.get(url_search)
@@ -130,7 +127,9 @@ class Ui_Form(object):
                 self.search_scrollAreaWidgetContents.setFixedHeight(y + 30)
 
     def comic(self):
-        '''目前发现的问题：无法检测点击哪个标签，也就无法获取相应的漫画信息'''
+        '''目前发现的问题：无法检测点击哪个label，即便能检测到，label是放在list中的，也就是说i_comic项会不断变化，
+           而且程序将多页搜索结果放在一起，list多次被重新复制赋值，就算找到label对应的i_comic，
+           找到的也只是最后一页的label，找到对应的label后目前来看唯一可行的方案是找label中的text的值'''
 
         pass
 
