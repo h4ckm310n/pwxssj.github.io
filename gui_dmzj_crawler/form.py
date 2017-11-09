@@ -12,7 +12,7 @@ import os, requests, zipfile
 from selenium import webdriver
 from lxml import etree
 
-'''问题见search函数和comic函数的注释'''
+'''问题见comic函数的注释'''
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -75,7 +75,15 @@ class Ui_Form(object):
         QtCore.QMetaObject.connectSlotsByName(Form)
 
     def search(self):
-        '''目前发现的问题：进行新的一次搜索后，之前的搜索结果还在，新的搜索结果直接覆盖在上面 （见目录中的search_1到search_3三个图片)'''
+        if('nosearch_label' in dir(self)):
+            if self.nosearch_label != None:
+                self.gridLayout_2.removeWidget(self.nosearch_label)
+                self.nosearch_label.deleteLater()
+                self.nosearch_label = None
+        if('title_search_label' in dir(self)):
+            for i_t_label in self.search_scrollAreaWidgetContents.children():
+                i_t_label.deleteLater()
+                i_t_label = None
         _translate = QtCore.QCoreApplication.translate
         url_search = 'https://www.dmzj.com/dynamic/o_search/index/' + self.search_edit.text()
         result_search = requests.get(url_search)
