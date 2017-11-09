@@ -87,7 +87,7 @@ class Ui_Form(object):
                 i_t_label = None
 
         _translate = QtCore.QCoreApplication.translate
-        url_search = 'https://www.dmzj.com/dynamic/o_search/index/' + '超人'
+        url_search = 'https://www.dmzj.com/dynamic/o_search/index/' + self.search_edit.text()
         result_search = requests.get(url_search)
         if '很遗憾，您搜索的内容暂时没有找到。' in result_search.text:
             self.nosearch_label = QtWidgets.QLabel(self.search_scrollAreaWidgetContents)
