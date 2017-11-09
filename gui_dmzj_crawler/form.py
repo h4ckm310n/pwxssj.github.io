@@ -31,6 +31,7 @@ class Ui_Form(object):
         self.gridLayout_4.addLayout(self.gridLayout, 0, 0, 1, 1)
         self.search_buttom.clicked.connect(self.search)
 
+
         self.tabWidget = QtWidgets.QTabWidget(Form)
         self.tabWidget.setDocumentMode(True)
         self.tabWidget.setTabsClosable(True)
@@ -84,8 +85,9 @@ class Ui_Form(object):
             for i_t_label in self.search_scrollAreaWidgetContents.children():
                 i_t_label.deleteLater()
                 i_t_label = None
+
         _translate = QtCore.QCoreApplication.translate
-        url_search = 'https://www.dmzj.com/dynamic/o_search/index/' + self.search_edit.text()
+        url_search = 'https://www.dmzj.com/dynamic/o_search/index/' + '超人'
         result_search = requests.get(url_search)
         if '很遗憾，您搜索的内容暂时没有找到。' in result_search.text:
             self.nosearch_label = QtWidgets.QLabel(self.search_scrollAreaWidgetContents)
@@ -101,7 +103,11 @@ class Ui_Form(object):
             page_search = tree_search.xpath(
                 '//div[@class="bottom_page page"]/a[text()!="上一页"][text()!="下一页"]/text()')
             y = 10
-            i_comic_p = 0
+            self.i_comic_sum = 0
+            self.title_search_label = []
+            self.title_search_sum = []
+            self.latest_search_sum = []
+            self.link_search_sum = []
             for self.i_page_search in range(0, len(page_search)):
                 result_search = requests.get(url_search + '/' + page_search[self.i_page_search])
                 tree_search = etree.HTML(result_search.text)
@@ -110,9 +116,12 @@ class Ui_Form(object):
                 self.title_search = tree_search.xpath('//ul[@class="update_con autoHeight"]/li/a/@title')
                 self.latest_search = tree_search.xpath('//p[@class="newPage"]/text()')
                 self.link_search = tree_search.xpath('//ul[@class="update_con autoHeight"]/li/a/@href')
-                self.title_search_label = []
 
                 for self.i_comic in range(0, len(self.title_search)):
+                    self.title_search_sum.append(self.title_search[self.i_comic])
+                    self.latest_search_sum.append(self.latest_search[self.i_comic])
+                    self.link_search_sum.append(self.link_search[self.i_comic])
+
                     if self.i_comic in range(0, len(self.title_search), 4):
                         x = 10
                     elif self.i_comic in range(1, len(self.title_search), 4):
@@ -122,26 +131,20 @@ class Ui_Form(object):
                     elif self.i_comic in range(3, len(self.title_search), 4):
                         x = 850
                     self.title_search_label.append(QtWidgets.QLabel(self.search_scrollAreaWidgetContents))
-                    self.title_search_label[self.i_comic].setGeometry(QtCore.QRect(x, y, 270, 20))
-                    self.title_search_label[self.i_comic].setFrameShape(QtWidgets.QFrame.Box)
-                    self.title_search_label[self.i_comic].setFrameShadow(QtWidgets.QFrame.Raised)
-                    text_search_label = '<html><head/><body><p><span style=" color:#0000ff;">' + str(i_comic_p + (self.i_comic + 1)) + '   ' + self.title_search[self.i_comic] + '</span></p></body></html>'
-                    self.title_search_label[self.i_comic].setText(_translate('Form', text_search_label))
-                    self.title_search_label[self.i_comic].show()
-                    self.title_search_label[self.i_comic].mousePressEvent = self.comic()
+                    self.title_search_label[self.i_comic_sum].setGeometry(QtCore.QRect(x, y, 270, 20))
+                    self.title_search_label[self.i_comic_sum].setFrameShape(QtWidgets.QFrame.Box)
+                    self.title_search_label[self.i_comic_sum].setFrameShadow(QtWidgets.QFrame.Raised)
+                    text_search_label = '<html><head/><body><p><span style=" color:#0000ff;">' + str(self.i_comic_sum + 1) + '   ' + self.title_search_sum[self.i_comic_sum] + '</span></p></body></html>'
+                    self.title_search_label[self.i_comic_sum].setText(_translate('Form', text_search_label))
+                    self.title_search_label[self.i_comic_sum].show()
+                    self.title_search_label[self.i_comic_sum].mousePressEvent = self.comic()
                     if self.i_comic in range(3, len(self.title_search), 4):
                         y = y + 30
-                i_comic_p = i_comic_p + self.i_comic
+                    self.i_comic_sum = self.i_comic_sum + 1
                 self.search_scrollAreaWidgetContents.setFixedHeight(y + 30)
-
     def comic(self):
-        '''目前发现的问题：无法检测点击哪个label，即便能检测到，label是放在list中的，也就是说i_comic项会不断变化，
-           而且程序将多页搜索结果放在一起，list多次被重新复制赋值，就算找到label对应的i_comic，
-           找到的也只是最后一页的label，找到对应的label后目前来看唯一可行的方案是找label中的text的值'''
-
+        '''目前发现的问题：无法检测点击哪个label，label是放在list中的，且点击命令在for循环中'''
         pass
-
-
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
