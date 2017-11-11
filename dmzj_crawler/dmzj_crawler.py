@@ -43,8 +43,10 @@ def comic():
     print(title_search[input_i_comic])
     print()
     response_comic = requests.get(link_search[input_i_comic])
-    if '<img src="/css/img/4004.gif">' in response_comic.text:
+    if '4004.gif' in response_comic.text:
         print('因版权等原因暂停提供')
+        input()
+        exit()
     else:
         tree_comic = etree.HTML(response_comic.text)
         global title_volume
