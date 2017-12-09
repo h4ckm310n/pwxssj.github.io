@@ -15,9 +15,7 @@ import functools
 from multiprocessing import Pool, Queue
 import aiohttp, asyncio
 
-'''问题：标签页关不掉，执行爬虫语句时窗口没有相应'''
-
-
+'''问题：标签页关不掉，执行爬虫语句时窗口没有响应'''
 
 
 class Ui_Form(object):
@@ -43,6 +41,8 @@ class Ui_Form(object):
         self.tabWidget.setTabsClosable(True)
         self.tabWidget.setMovable(True)
         self.tabWidget.setObjectName("tabWidget")
+        self.tabWidget.tabCloseRequested.connect(self.tab_remove)
+
         self.search_tab = QtWidgets.QWidget()
         self.search_tab.setObjectName("search_tab")
         self.gridLayout_search = QtWidgets.QGridLayout(self.search_tab)
@@ -243,6 +243,15 @@ class Ui_Form(object):
             self.download_button.show()
             self.volume_scrollArea.show()
             self.volume_scrollAreaWidgetContents.show()
+
+
+    def tab_remove(self, index):
+        tab = self.tabWidget.widget(index)
+        #tab.deleteLater()
+        self.tabWidget.removeTab(index)
+        tab.close()
+        tab.deleteLater()
+
 
 
     def all_select(self):
