@@ -14,20 +14,34 @@ import zipfile
 from selenium import webdriver
 from lxml import etree
 import functools
-import aiohttp
-import asyncio
+# import aiohttp
+# import asyncio
 
-"""问题：传参数到QThread以及其他暂未发现的QThread的问题"""
+"""问题：提高下载速度，下载任务列表"""
+
+
+class SearchThread(QtCore.QThread):
+    def run(self):
+        pass
+
+
+class ComicThread(QtCore.QThread):
+    def run(self):
+        pass
 
 
 class DownThread(QtCore.QThread):
-    def __init__(self, browser, checked, link_volume, title_volume):
+    down_init = QtCore.pyqtSignal(list)
+    down_progress = QtCore.pyqtSignal(list)
+
+    def __init__(self, browser, checked, link_volume, title_volume, parent=None):
+        super(DownThread, self).__init__()
         self.browser = browser
         self.checked = checked
         self.link_volume = link_volume
         self.title_volume = title_volume
 
-    async def image_download(self, headers, url_image, name_image, i_image):
+    '''async def image_download(self, headers, url_image, name_image, i_image):
         name_image.append(str(i_image) + '.jpg')
         async with aiohttp.ClientSession() as session:
             print(i_image)
@@ -38,13 +52,15 @@ class DownThread(QtCore.QThread):
 
     async def image_download_run(self, headers, url_image, name_image):
         for i_image in range(0, len(url_image)):
-            await self.image_download(headers, url_image, name_image, i_image)
+            await self.image_download(headers, url_image, name_image, i_image)'''
 
     def run(self):
         for i_volume in self.checked:
+            self.down_init.emit([i_volume, '正在解析', 0])
             self.browser.get('http://manhua.dmzj.com' + self.link_volume[i_volume])
             tree_volume = etree.HTML(self.browser.page_source)
             url_image = tree_volume.xpath('//select[@id="page_select"]/option/@value')
+            self.down_init.emit([i_volume, '正在下载', len(url_image)])
             dir_volume = self.title_volume[i_volume].replace('/', ' ')
             if not os.path.exists(dir_volume):
                 os.mkdir(dir_volume)
@@ -53,12 +69,23 @@ class DownThread(QtCore.QThread):
             os.chdir(dir_volume)
             headers = {'Referer': 'http://manhua.dmzj.com' + self.link_volume[i_volume]}
             name_image = []
-            image_loop = asyncio.get_event_loop()
-            image_loop.run_until_complete(self.image_download_run(headers, url_image, name_image))
+            '''image_loop = asyncio.get_event_loop()
+            print("name_image")
+            image_loop.run_until_complete(self.image_download_run(headers, url_image, name_image))'''
+            for i_image in range(0, len(url_image)):
+                name_image.append(str(i_image) + '.jpg')
+                get_image = requests.get(url_image[i_image], headers = headers)
+                with open(name_image[i_image], 'wb') as fd:
+                    fd.write(get_image.content)
+                self.down_progress.emit([i_volume, i_image, len(url_image)])
+
             os.chdir(os.path.dirname(os.path.abspath('.')))
             zip_volume = zipfile.ZipFile(dir_volume + '.zip', 'w')
             for i_image in range(0, len(url_image)):
                 zip_volume.write('./' + dir_volume + '/' + name_image[i_image])
+        os.chdir(os.path.dirname(os.path.abspath('.')))
+        os.chdir(os.path.dirname(os.path.abspath('.')))
+        print('end')
 
 
 class UiForm(object):
@@ -187,7 +214,7 @@ class UiForm(object):
                     self.title_search_label[self.i_comic_sum].setGeometry(QtCore.QRect(x, y, 270, 20))
                     self.title_search_label[self.i_comic_sum].setFrameShape(QtWidgets.QFrame.Box)
                     self.title_search_label[self.i_comic_sum].setFrameShadow(QtWidgets.QFrame.Raised)
-                    text_search_label = '<html><head/><body><p><span style=" color:# 0000ff;">' + str(self.i_comic_sum + 1) + '   ' + self.title_search_sum[self.i_comic_sum] + '</span></p></body></html>'
+                    text_search_label = '<html><head/><body><p><span style=" color:#0000ff;">' + str(self.i_comic_sum + 1) + '   ' + self.title_search_sum[self.i_comic_sum] + '</span></p></body></html>'
                     self.title_search_label[self.i_comic_sum].setText(_translate('form', text_search_label))
                     self.title_search_label[self.i_comic_sum].show()
                     self.title_search_label[self.i_comic_sum].mousePressEvent = functools.partial(self.comic, source_object = self.title_search_label[self.i_comic_sum])
@@ -249,7 +276,7 @@ class UiForm(object):
             self.title_label.setGeometry(20, 40, 221, 41)
             self.title_label.setFrameShape(QtWidgets.QFrame.Box)
             self.title_label.setFrameShadow(QtWidgets.QFrame.Plain)
-            self.title_label.setText(_translate("form", '﻿<html><head/><body><p><span style=" font-size:14pt; font-weight:600; color:# 0000ff;">' + self.title_search_sum[self.i_comic] + '</span></p></body></html>'))
+            self.title_label.setText(_translate("form", '﻿<html><head/><body><p><span style=" font-size:14pt; font-weight:600; color:#0000ff;">' + self.title_search_sum[self.i_comic] + '</span></p></body></html>'))
             self.intro_label = QtWidgets.QLabel(self.comic_frame)
             self.intro_label.setGeometry(250, 90, 351, 301)
             self.intro_label.setAlignment(QtCore.Qt.AlignBaseline)
@@ -335,7 +362,6 @@ class UiForm(object):
         y = 0
         # 下载任务列表
         for i_volume in checked:
-            y += 40
             self.downlist_frame.append(QtWidgets.QFrame(self.down_scrollAreaWidgetContents))
             self.downtitle_label.append(QtWidgets.QLabel(self.downlist_frame[i_volume]))
             self.downstatus_label.append(QtWidgets.QLabel(self.downlist_frame[i_volume]))
@@ -353,19 +379,41 @@ class UiForm(object):
             self.downstatus_label[i_volume].show()
             self.down_progressBar[i_volume].setGeometry(730, 10, 411, 21)
             self.down_progressBar[i_volume].hide()
+            y += 40
         # 下载
+        self.tabWidget.setCurrentWidget(self.down_tab)
         browser = webdriver.PhantomJS()
-        down_thread = DownThread(browser, checked, self.link_volume, self.title_volume)
-        down_thread.start()
-        os.chdir(os.path.dirname(os.path.abspath('.')))
-        os.chdir(os.path.dirname(os.path.abspath('.')))
+        self.down_thread = DownThread(browser, checked, self.link_volume, self.title_volume)
+        self.down_thread.down_init.connect(self.down_init)
+        self.down_thread.down_progress.connect(self.down_progress)
+        self.down_thread.start()
+
+    def down_init(self, down_info):
+        i_volume = down_info[0]
+        status_text = down_info[1]
+        progress_max = down_info[2]
+        self.downstatus_label[i_volume].setText(status_text)
+        if progress_max != 0:
+            self.down_progressBar[i_volume].setMaximum(progress_max)
+            self.down_progressBar[i_volume].setValue(0)
+            self.down_progressBar[i_volume].show()
+
+    def down_progress(self, down_info):
+        i_volume = down_info[0]
+        i_image = down_info[1] + 1
+        progress_max = down_info[2]
+        self.down_progressBar[i_volume].setValue(i_image)
+        if i_image == progress_max:
+            self.downstatus_label[i_volume].setText('下载完成')
+            self.down_progressBar[i_volume].hide()
+
 
     def re_translate_ui(self, form):
         _translate = QtCore.QCoreApplication.translate
         form.setWindowTitle(_translate("form", "动漫之家漫画下载 BY ssj"))
         self.search_buttom.setText(_translate("form", "搜索"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.search_tab), _translate("form", "搜索结果"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.down_tab), _translate("form", "下载页面"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.down_tab), _translate("form", "下载任务"))
 
 
 if __name__ == "__main__":
