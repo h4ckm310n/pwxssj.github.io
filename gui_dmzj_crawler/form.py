@@ -11,13 +11,13 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import os
 import requests
 import zipfile
-from selenium import webdriver
 from lxml import etree
 import functools
-# import aiohttp
-# import asyncio
+# import queue
+import execjs
 
-"""问题：提高下载速度，下载任务列表"""
+
+"""问题：下载队列"""
 
 
 class SearchThread(QtCore.QThread):
@@ -34,47 +34,36 @@ class DownThread(QtCore.QThread):
     down_init = QtCore.pyqtSignal(list)
     down_progress = QtCore.pyqtSignal(list)
 
-    def __init__(self, browser, checked, link_volume, title_volume, parent=None):
+    def __init__(self, checked, link_volume, title_volume, parent=None):
         super(DownThread, self).__init__()
-        self.browser = browser
         self.checked = checked
         self.link_volume = link_volume
         self.title_volume = title_volume
 
-    '''async def image_download(self, headers, url_image, name_image, i_image):
-        name_image.append(str(i_image) + '.jpg')
-        async with aiohttp.ClientSession() as session:
-            print(i_image)
-            async with session.get(url_image[i_image], headers=headers) as get_image:
-                image = await get_image.read()
-                with open(name_image[i_image], 'wb') as fd:
-                    fd.write(image)
-
-    async def image_download_run(self, headers, url_image, name_image):
-        for i_image in range(0, len(url_image)):
-            await self.image_download(headers, url_image, name_image, i_image)'''
-
     def run(self):
-        for i_volume in self.checked:
+        """下载漫画"""
+
+        for i_volume in range(0, len(self.checked)):
             self.down_init.emit([i_volume, '正在解析', 0])
-            self.browser.get('http://manhua.dmzj.com' + self.link_volume[i_volume])
-            tree_volume = etree.HTML(self.browser.page_source)
-            url_image = tree_volume.xpath('//select[@id="page_select"]/option/@value')
+            response_volume = requests.get('http://manhua.dmzj.com' + self.link_volume[self.checked[i_volume]])
+            tree_volume = etree.HTML(response_volume.text)
+            js_volume = tree_volume.xpath("//html/head/script[1]/text()")[0].strip().split('\n')[2].strip()[5:-1]
+            url_image = execjs.eval(js_volume)[19:-4].split('","')
+            for i_image in range(0, len(url_image)):
+                url_image[i_image] = 'http://images.dmzj.com/' + url_image[i_image].replace('\\', '')
             self.down_init.emit([i_volume, '正在下载', len(url_image)])
-            dir_volume = self.title_volume[i_volume].replace('/', ' ')
+            dir_volume = self.title_volume[self.checked[i_volume]].replace('/', ' ')
             if not os.path.exists(dir_volume):
                 os.mkdir(dir_volume)
             else:
+                self.down_init.emit([i_volume, '目录存在', 0])
                 continue
             os.chdir(dir_volume)
-            headers = {'Referer': 'http://manhua.dmzj.com' + self.link_volume[i_volume]}
+            headers = {'Referer': 'http://manhua.dmzj.com' + self.link_volume[self.checked[i_volume]]}
             name_image = []
-            '''image_loop = asyncio.get_event_loop()
-            print("name_image")
-            image_loop.run_until_complete(self.image_download_run(headers, url_image, name_image))'''
             for i_image in range(0, len(url_image)):
                 name_image.append(str(i_image) + '.jpg')
-                get_image = requests.get(url_image[i_image], headers = headers)
+                get_image = requests.get(url_image[i_image], headers=headers)
                 with open(name_image[i_image], 'wb') as fd:
                     fd.write(get_image.content)
                 self.down_progress.emit([i_volume, i_image, len(url_image)])
@@ -94,6 +83,7 @@ class UiForm(object):
 
         form.setObjectName("form")
         form.isMaximized()
+        form.setWindowTitle("动漫之家漫画下载 BY ssj")
         self.gridLayout_Form = QtWidgets.QGridLayout(form)
         self.gridLayout_Form.setObjectName("gridLayout_Form")
         self.gridLayout = QtWidgets.QGridLayout()
@@ -103,6 +93,7 @@ class UiForm(object):
         self.gridLayout.addWidget(self.search_edit, 0, 0, 1, 1)
         self.search_buttom = QtWidgets.QPushButton(form)
         self.search_buttom.setObjectName("search_buttom")
+        self.search_buttom.setText("搜索")
         self.gridLayout.addWidget(self.search_buttom, 0, 1, 1, 1)
         self.gridLayout_Form.addLayout(self.gridLayout, 0, 0, 1, 1)
         self.search_buttom.clicked.connect(self.search)
@@ -125,6 +116,7 @@ class UiForm(object):
         self.search_scrollArea.setWidgetResizable(True)
         self.gridLayout_search.addWidget(self.search_scrollArea, 0, 0, 1, 1)
         self.tabWidget.addTab(self.search_tab, "")
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.search_tab), "搜索结果")
         self.down_tab = QtWidgets.QWidget()
         self.down_tab.setObjectName("down_tab")
         self.gridLayout_down = QtWidgets.QGridLayout(self.down_tab)
@@ -141,12 +133,10 @@ class UiForm(object):
         self.down_scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 696, 316))
         self.down_scrollAreaWidgetContents.setObjectName("down_scrollAreaWidgetContents")
         self.down_scrollArea.setWidget(self.down_scrollAreaWidgetContents)
-
         self.gridLayout_down.addWidget(self.down_scrollArea, 0, 0, 1, 1)
         self.tabWidget.addTab(self.down_tab, "")
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.down_tab), "下载任务")
         self.gridLayout_Form.addWidget(self.tabWidget, 1, 0, 1, 1)
-        
-        self.re_translate_ui(form)
         self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(form)
 
@@ -164,7 +154,6 @@ class UiForm(object):
                 i_t_label.deleteLater()
                 i_t_label = None
 
-        _translate = QtCore.QCoreApplication.translate
         url_search = 'https://www.dmzj.com/dynamic/o_search/index/' + '闪电侠'
         result_search = requests.get(url_search)
         # 没有搜索结果
@@ -173,7 +162,7 @@ class UiForm(object):
             self.nofound_label.setGeometry(QtCore.QRect(50, 20, 500, 140))
             self.nofound_label.setTextFormat(QtCore.Qt.AutoText)
             self.nofound_label.setAlignment(QtCore.Qt.AlignCenter)
-            self.nofound_label.setText(_translate("form", "<html><head/><body><p><span style=\" font-size:24pt;\">很遗憾，您搜索的内容暂时没有找到。</span></p></body></html>"))
+            self.nofound_label.setText("<html><head/><body><p><span style=\" font-size:24pt;\">很遗憾，您搜索的内容暂时没有找到。</span></p></body></html>")
             self.gridLayout_search.addWidget(self.nofound_label, 0, 0, 1, 1)
             self.nofound_label.show()
         # 显示搜索结果
@@ -201,7 +190,7 @@ class UiForm(object):
                 for i_comic in range(0, len(self.title_search)):
                     self.title_search_sum.append(self.title_search[i_comic])
                     self.latest_search_sum.append(self.latest_search[i_comic])
-                    self.link_search_sum.append(self.link_search[i_comic])
+                    self.link_search_sum.append('http:' + self.link_search[i_comic])
                     if i_comic in range(0, len(self.title_search), 4):
                         x = 10
                     elif i_comic in range(1, len(self.title_search), 4):
@@ -215,7 +204,7 @@ class UiForm(object):
                     self.title_search_label[self.i_comic_sum].setFrameShape(QtWidgets.QFrame.Box)
                     self.title_search_label[self.i_comic_sum].setFrameShadow(QtWidgets.QFrame.Raised)
                     text_search_label = '<html><head/><body><p><span style=" color:#0000ff;">' + str(self.i_comic_sum + 1) + '   ' + self.title_search_sum[self.i_comic_sum] + '</span></p></body></html>'
-                    self.title_search_label[self.i_comic_sum].setText(_translate('form', text_search_label))
+                    self.title_search_label[self.i_comic_sum].setText(text_search_label)
                     self.title_search_label[self.i_comic_sum].show()
                     self.title_search_label[self.i_comic_sum].mousePressEvent = functools.partial(self.comic, source_object = self.title_search_label[self.i_comic_sum])
                     if i_comic in range(3, len(self.title_search), 4):
@@ -227,7 +216,6 @@ class UiForm(object):
 
         """漫画界面"""
 
-        _translate = QtCore.QCoreApplication.translate
         self.i_comic = int(source_object.text()[52:-25][0]) - 1
         self.comic_tab = QtWidgets.QWidget()
         self.gridLayout_comic = QtWidgets.QGridLayout(self.comic_tab)
@@ -238,14 +226,14 @@ class UiForm(object):
         self.gridLayout_comic.addWidget(self.comic_frame, 0, 0, 1, 1)
         self.tabWidget.insertTab(1, self.comic_tab, "")
         self.num_tab += 1
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.comic_tab), _translate("form", self.title_search_sum[self.i_comic]))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.comic_tab), self.title_search_sum[self.i_comic])
         self.tabWidget.setCurrentWidget(self.comic_tab)
         response_comic = requests.get(self.link_search_sum[self.i_comic])
         # 暂停提供
         if '4004.gif' in response_comic.text:
             self.noprovide_label = QtWidgets.QLabel(self.comic_frame)
             self.noprovide_label.setAlignment(QtCore.Qt.AlignCenter)
-            self.noprovide_label.setText(_translate("form", "<html><head/><body><p><span style=\" font-size:24pt;\">因版权等原因暂停提供</span></p></body></html>"))
+            self.noprovide_label.setText("<html><head/><body><p><span style=\" font-size:24pt;\">因版权等原因暂停提供</span></p></body></html>")
             self.noprovide_label.setGeometry(50, 20, 500, 140)
             self.gridLayout_comic.addWidget(self.noprovide_label, 0, 0, 1, 1)
             self.noprovide_label.show()
@@ -276,20 +264,20 @@ class UiForm(object):
             self.title_label.setGeometry(20, 40, 221, 41)
             self.title_label.setFrameShape(QtWidgets.QFrame.Box)
             self.title_label.setFrameShadow(QtWidgets.QFrame.Plain)
-            self.title_label.setText(_translate("form", '﻿<html><head/><body><p><span style=" font-size:14pt; font-weight:600; color:#0000ff;">' + self.title_search_sum[self.i_comic] + '</span></p></body></html>'))
+            self.title_label.setText('﻿<html><head/><body><p><span style=" font-size:14pt; font-weight:600; color:#0000ff;">' + self.title_search_sum[self.i_comic] + '</span></p></body></html>')
             self.intro_label = QtWidgets.QLabel(self.comic_frame)
             self.intro_label.setGeometry(250, 90, 351, 301)
             self.intro_label.setAlignment(QtCore.Qt.AlignBaseline)
             self.intro_label.setWordWrap(True)
             self.intro_label.setFrameShape(QtWidgets.QFrame.Box)
             self.intro_label.setFrameShadow(QtWidgets.QFrame.Plain)
-            self.intro_label.setText(_translate("form", intro_comic[0].strip()))
+            self.intro_label.setText(intro_comic[0].strip())
             self.allselect_button = QtWidgets.QPushButton(self.comic_frame)
             self.allselect_button.setGeometry(400, 40, 100, 40)
-            self.allselect_button.setText(_translate("form", "全选"))
+            self.allselect_button.setText("全选")
             self.download_button = QtWidgets.QPushButton(self.comic_frame)
             self.download_button.setGeometry(500, 40, 100, 40)
-            self.download_button.setText(_translate("form", "下载"))
+            self.download_button.setText("下载")
             self.volume_checkbox = []
             i_list = 0
             for i_volume in range(0, len(self.title_volume)):
@@ -297,7 +285,7 @@ class UiForm(object):
                 y = 10 + 30 * (i_volume % 15) * (i_list + 1)
                 self.volume_checkbox.append(QtWidgets.QCheckBox(self.volume_scrollAreaWidgetContents))
                 self.volume_checkbox[i_volume].setGeometry(x, y, 170, 20)
-                self.volume_checkbox[i_volume].setText(_translate("form", str(i_volume + 1) + ' ' + self.title_volume[i_volume]))
+                self.volume_checkbox[i_volume].setText(str(i_volume + 1) + ' ' + self.title_volume[i_volume])
                 self.volume_checkbox[i_volume].show()
                 if i_volume != 0 and i_volume % 15 == 0:
                     i_list += 1
@@ -339,56 +327,51 @@ class UiForm(object):
     def download(self):
         """下载漫画"""
 
-        _translate = QtCore.QCoreApplication.translate
-
         checked = []
         for i_volume in range(0, len(self.title_volume)):
             if self.volume_checkbox[i_volume].isChecked():
                 checked.append(i_volume)
-
         if not os.path.exists('download'):
             os.mkdir('download')
         os.chdir('download')
-
         dir_comic = self.title_search_sum[self.i_comic].replace('/', ' ')
         if not os.path.exists(dir_comic):
             os.mkdir(dir_comic)
         os.chdir(dir_comic)
-
         self.downlist_frame = []
         self.downtitle_label = []
         self.downstatus_label = []
         self.down_progressBar = []
         y = 0
         # 下载任务列表
-        for i_volume in checked:
+        for i_volume in range(0, len(checked)):
             self.downlist_frame.append(QtWidgets.QFrame(self.down_scrollAreaWidgetContents))
             self.downtitle_label.append(QtWidgets.QLabel(self.downlist_frame[i_volume]))
             self.downstatus_label.append(QtWidgets.QLabel(self.downlist_frame[i_volume]))
             self.down_progressBar.append(QtWidgets.QProgressBar(self.downlist_frame[i_volume]))
-
             self.downlist_frame[i_volume].setGeometry(0, y, 1301, 40)
             self.downlist_frame[i_volume].setFrameShape(QtWidgets.QFrame.StyledPanel)
             self.downlist_frame[i_volume].setFrameShadow(QtWidgets.QFrame.Raised)
             self.downlist_frame[i_volume].show()
             self.downtitle_label[i_volume].setGeometry(19, 5, 581, 31)
-            self.downtitle_label[i_volume].setText(_translate("form", '<html><head/><body><p><span style=" font-size:18pt;">' + self.title_search_sum[self.i_comic] + ' ' + self.title_volume[i_volume] + '</span></p></body></html>'))
+            self.downtitle_label[i_volume].setText('<html><head/><body><p><span style=" font-size:18pt;">' + self.title_search_sum[self.i_comic] + ' ' + self.title_volume[checked[i_volume]] + '</span></p></body></html>')
             self.downtitle_label[i_volume].show()
             self.downstatus_label[i_volume].setGeometry(1160, 10, 131, 21)
-            self.downstatus_label[i_volume].setText(_translate("form", '等待下载'))
+            self.downstatus_label[i_volume].setText('等待下载')
             self.downstatus_label[i_volume].show()
             self.down_progressBar[i_volume].setGeometry(730, 10, 411, 21)
             self.down_progressBar[i_volume].hide()
             y += 40
         # 下载
         self.tabWidget.setCurrentWidget(self.down_tab)
-        browser = webdriver.PhantomJS()
-        self.down_thread = DownThread(browser, checked, self.link_volume, self.title_volume)
+        self.down_thread = DownThread(checked, self.link_volume, self.title_volume)
         self.down_thread.down_init.connect(self.down_init)
         self.down_thread.down_progress.connect(self.down_progress)
         self.down_thread.start()
 
     def down_init(self, down_info):
+        """下载状态信息"""
+
         i_volume = down_info[0]
         status_text = down_info[1]
         progress_max = down_info[2]
@@ -399,6 +382,8 @@ class UiForm(object):
             self.down_progressBar[i_volume].show()
 
     def down_progress(self, down_info):
+        """下载进度条"""
+
         i_volume = down_info[0]
         i_image = down_info[1] + 1
         progress_max = down_info[2]
@@ -406,14 +391,6 @@ class UiForm(object):
         if i_image == progress_max:
             self.downstatus_label[i_volume].setText('下载完成')
             self.down_progressBar[i_volume].hide()
-
-
-    def re_translate_ui(self, form):
-        _translate = QtCore.QCoreApplication.translate
-        form.setWindowTitle(_translate("form", "动漫之家漫画下载 BY ssj"))
-        self.search_buttom.setText(_translate("form", "搜索"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.search_tab), _translate("form", "搜索结果"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.down_tab), _translate("form", "下载任务"))
 
 
 if __name__ == "__main__":
