@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CN007 Project</title>
+    <script src="script/jquery-3.4.1.min.js"></script>
+    <script src="DES.js"></script>
+    <script src="RC4.js"></script>
+    <script src="bootstrap/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
+</head>
+<body style="background-color: #9fcdff; padding-top: 70px">
+<div class="container" style="background-color: white; padding: 30px">
+    <h2>Data Security Project</h2>
+    <hr>
+    <form>
+        <div class="form-group">
+            <label for="plaintext">Plaintext: </label>
+            <input type="text" id="plaintext" class="form-control">
+        </div>
+        <div class="form-group">
+            <label for="key">Key: </label>
+            <input type="text" id="key" class="form-control">
+        </div>
+        <div class="form-group row">
+            <label class="radio-inline col-md-2">
+                <input type="radio" name="encryptopt" value="DES">DES
+            </label>
+            <label class="radio-inline col-md-2">
+                <input type="radio" name="encryptopt" value="RC4">RC4
+            </label>
+            <button type="button" class="btn btn-primary" onclick="enc()">Encrypt</button>
+        </div>
+    </form>
+</div>
+
+<div class="modal fade" id="result_modal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="result_title"></h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h6 id="result_cipher" style="color: red; text-align: center"></h6>
+                <hr>
+                <h5 style="text-align: center"><b>Process</b></h5>
+                <ul id="detail_result"></ul>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    function enc() {
+        $('#result_title').text('');
+        $('#result_cipher').text('');
+        $('#detail_result').text('');
+        let plaintext = $('#plaintext').val();
+        let key = $('#key').val();
+        let opt = $('[name=encryptopt]:checked').val();
+        let result = null;
+        if (opt === 'DES')
+            result = DES(plaintext, key);
+        else if (opt === 'RC4')
+            result = RC4(plaintext, key);
+        else
+            return;
+        $('#result_title').text(opt);
+        $('#result_cipher').text('Cipher: ' + result);
+        $('#result_modal').modal('show');
+    }
+
+    function add_process(text) {
+        $('#detail_result').append('<li>' + text + '</li>');
+    }
+</script>
+</body>
+</html>
